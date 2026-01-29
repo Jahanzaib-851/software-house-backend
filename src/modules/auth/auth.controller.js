@@ -119,17 +119,30 @@ export const forgotPassword = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, null, 'OTP sent'));
 });
 
+
 export const resetPassword = asyncHandler(async (req, res) => {
   const { email, otp, newPassword } = req.body;
+
   const user = await User.findOne({ email });
-  if (!user || user.passwordResetOTP !== otp || user.passwordResetExpires < Date.now()) {
+
+  // Debugging ke liye (check terminal when you hit reset)
+  console.log("DB OTP:", user?.passwordResetOTP, "Type:", typeof user?.passwordResetOTP);
+  console.log("Input OTP:", otp, "Type:", typeof otp);
+
+  // Match check with String conversion to avoid type mismatch
+  if (!user || String(user.passwordResetOTP) !== String(otp) || user.passwordResetExpires < Date.now()) {
     throw new ApiError(400, 'Invalid OTP');
   }
+
   user.password = newPassword;
   user.passwordResetOTP = undefined;
+  user.passwordResetExpires = undefined; // Saaf kar dein expiration bhi
+
   await user.save();
-  res.status(200).json(new ApiResponse(200, null, 'Success'));
+
+  res.status(200).json(new ApiResponse(200, null, 'Password updated successfully'));
 });
+
 
 export const deleteTestUser = asyncHandler(async (req, res) => {
   await User.findOneAndDelete({ email: req.body.email });
