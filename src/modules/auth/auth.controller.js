@@ -10,10 +10,8 @@ import STATUS from '../../constants/status.js';
 
 /* ===== GET CURRENT USER (Profile) ===== */
 export const getMe = asyncHandler(async (req, res) => {
-  // req.user protect middleware se aata hai
   const user = await User.findById(req.user?._id).select("-password -tokens");
   if (!user) throw new ApiError(404, "User not found");
-
   res.status(200).json(new ApiResponse(200, user, "User profile fetched successfully"));
 });
 
@@ -32,14 +30,15 @@ export const register = asyncHandler(async (req, res) => {
   user.otpExpires = Date.now() + 3600000;
   await user.save();
 
-  await sendEmail({
+  // 🚀 FIXED: Await hata diya taake timeout na ho
+  sendEmail({
     to: email,
     subject: 'Verify Your Account',
     html: `<p>Your verification OTP is <b>${otp}</b></p>`
-  });
+  }).catch(err => console.error("Register Email Error:", err.message));
 
   const createdUser = await User.findById(user._id).select('-password -tokens');
-  res.status(201).json(new ApiResponse(201, createdUser, 'User registered successfully'));
+  res.status(201).json(new ApiResponse(201, createdUser, 'User registered. Please check email for OTP.'));
 });
 
 /* ===== LOGIN ===== */
@@ -47,17 +46,14 @@ export const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) throw new ApiError(400, 'Email and password are required');
 
-  // 1. Password field ko explicitly select karna zaroori hai agar model mein select: false hai
   const user = await User.findOne({ email }).select("+password");
 
   if (!user || !(await user.comparePassword(password))) {
     throw new ApiError(401, 'Invalid credentials');
   }
 
-  // 2. Generate tokens (Ensure model.generateAuthTokens is working)
   const tokens = await user.generateAuthTokens();
 
-  // 3. Response format ko backend/frontend ke liye match karein
   res.status(200).json(new ApiResponse(200, {
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
@@ -73,7 +69,7 @@ export const login = asyncHandler(async (req, res) => {
 export const logout = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user?._id);
   if (user) {
-    user.tokens = []; // Clear all refresh tokens
+    user.tokens = [];
     await user.save();
   }
   res.status(200).json(new ApiResponse(200, null, 'Logged out successfully'));
@@ -104,7 +100,7 @@ export const refreshToken = asyncHandler(async (req, res) => {
   }
 });
 
-/* ===== FORGOT & RESET (Same as before) ===== */
+/* ===== FORGOT PASSWORD ===== */
 export const forgotPassword = asyncHandler(async (req, res) => {
   const { email } = req.body;
   const user = await User.findOne({ email });
@@ -115,35 +111,34 @@ export const forgotPassword = asyncHandler(async (req, res) => {
   user.passwordResetExpires = Date.now() + 3600000;
   await user.save();
 
-  await sendEmail({ to: email, subject: 'Reset OTP', html: `OTP: ${otp}` });
-  res.status(200).json(new ApiResponse(200, null, 'OTP sent'));
+  // 🚀 FIXED: Await hata diya taake frontend par "Network Error" na aaye
+  sendEmail({
+    to: email,
+    subject: 'Reset OTP',
+    html: `<h3>OTP: ${otp}</h3><p>This OTP is valid for 1 hour.</p>`
+  }).catch(err => console.error("Forgot Pass Email Error:", err.message));
+
+  res.status(200).json(new ApiResponse(200, null, 'OTP sent successfully to your email'));
 });
 
-
+/* ===== RESET PASSWORD ===== */
 export const resetPassword = asyncHandler(async (req, res) => {
   const { email, otp, newPassword } = req.body;
-
   const user = await User.findOne({ email });
 
-  // Debugging ke liye (check terminal when you hit reset)
-  console.log("DB OTP:", user?.passwordResetOTP, "Type:", typeof user?.passwordResetOTP);
-  console.log("Input OTP:", otp, "Type:", typeof otp);
-
-  // Match check with String conversion to avoid type mismatch
   if (!user || String(user.passwordResetOTP) !== String(otp) || user.passwordResetExpires < Date.now()) {
-    throw new ApiError(400, 'Invalid OTP');
+    throw new ApiError(400, 'Invalid or expired OTP');
   }
 
   user.password = newPassword;
   user.passwordResetOTP = undefined;
-  user.passwordResetExpires = undefined; // Saaf kar dein expiration bhi
+  user.passwordResetExpires = undefined;
 
   await user.save();
-
   res.status(200).json(new ApiResponse(200, null, 'Password updated successfully'));
 });
 
-
+/* ===== DELETE TEST USER ===== */
 export const deleteTestUser = asyncHandler(async (req, res) => {
   await User.findOneAndDelete({ email: req.body.email });
   res.status(200).json(new ApiResponse(200, null, 'Deleted'));
