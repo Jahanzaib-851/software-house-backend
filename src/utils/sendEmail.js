@@ -3,19 +3,14 @@ import nodemailer from 'nodemailer';
 const sendEmail = async ({ to, subject, html, text = null }) => {
   try {
     const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com", // Direct host likh dein taake env ka masla na ho
-      port: 465,             // Render par 465 (SSL) sabse best chalta hai
-      secure: true,          // 465 ke liye hamesha true
+      service: 'gmail', // Render par host/port se behtar ye kaam karta hai
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
       },
       tls: {
-        rejectUnauthorized: false, // Security check bypass for Render
-        minVersion: "TLSv1.2"      // Purane protocols block karne ke liye
-      },
-      connectionTimeout: 10000,    // 10 seconds wait karega
-      greetingTimeout: 10000
+        rejectUnauthorized: false // Is se connection block nahi hota
+      }
     });
 
     const info = await transporter.sendMail({
@@ -26,12 +21,11 @@ const sendEmail = async ({ to, subject, html, text = null }) => {
       ...(text && { text })
     });
 
-    console.log("✅ Email successfully sent to:", to);
+    console.log("✅ Email Sent Successfully!");
     return info;
   } catch (err) {
-    console.error("❌ Email Sending Failed!");
-    console.error("Error Message:", err.message);
-    throw err;
+    console.error("❌ Email Error:", err.message);
+    return null;
   }
 };
 
