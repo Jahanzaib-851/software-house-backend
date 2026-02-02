@@ -4,7 +4,7 @@ import cors from "cors";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
-import path from "path"; // ✅ Added path import
+import path from "path";
 
 import routes from "./routes/index.js";
 import errorHandler from "./middlewares/error.middleware.js";
@@ -15,11 +15,11 @@ dotenv.config();
 const app = express();
 
 // ==========================================
-// 🛠️ HELMET FIX: Images load karne ke liye policy relax ki hai
+// 🛠️ HELMET CONFIG
 // ==========================================
 app.use(
   helmet({
-    crossOriginResourcePolicy: false, // ✅ Zaroori hai taake frontend images load kar sake
+    crossOriginResourcePolicy: false,
   })
 );
 
@@ -36,11 +36,25 @@ if (process.env.NODE_ENV === "development") {
 }
 
 // ==========================================
-// 🛠️ CORS FIX
+// 🛠️ CORS FIX (Local + Vercel Dono Ke Liye)
 // ==========================================
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://software-house-frontend.vercel.app" // Aapka live frontend link
+];
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error("CORS policy does not allow access from this origin."));
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
@@ -48,16 +62,15 @@ app.use(
 );
 
 // ==========================================
-// 🛠️ STATIC FILES: Images serve karne ke liye
+// 🛠️ STATIC FILES
 // ==========================================
-// Ye line batati hai ke 'uploads' folder ko browser se access kiya ja sakta hai
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // Health check
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
-    message: "🚀 API is running",
+    message: "🚀 API is running perfectly",
   });
 });
 
