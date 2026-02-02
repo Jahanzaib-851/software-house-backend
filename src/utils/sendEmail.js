@@ -5,10 +5,15 @@ const sendEmail = async ({ to, subject, html, text = null }) => {
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT),
-      secure: Number(process.env.SMTP_PORT) === 465, // true for 465, false for 587
+      // Live server par 465 best hai, lekin 587 bhi chal jata hai agar secure false ho
+      secure: Number(process.env.SMTP_PORT) === 465,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
+      },
+      // 🚨 Ye niche wali lines live server (Render) ke liye bohot zaroori hain
+      tls: {
+        rejectUnauthorized: false
       }
     });
 
@@ -20,10 +25,14 @@ const sendEmail = async ({ to, subject, html, text = null }) => {
       ...(text && { text })
     });
 
-    console.log("Email sent:", info.messageId); // ✅ this will show actual messageId
+    console.log("✅ Email successfully sent to:", to);
+    console.log("📩 Message ID:", info.messageId);
     return info;
   } catch (err) {
-    console.error("Email failed:", err);      // ✅ shows real error
+    // 🚨 Ye detail logs aapko Render ke dashboard mein nazar ayenge
+    console.error("❌ Email Sending Failed!");
+    console.error("Error Name:", err.name);
+    console.error("Error Message:", err.message);
     throw err;
   }
 };
