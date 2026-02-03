@@ -1,37 +1,26 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
+
+// Aapki verified API Key
+const resend = new Resend('re_dcBaVtjE_P78e2m9LzkQYxiECSGYCo8yu');
 
 const sendEmail = async ({ to, subject, html, text = null }) => {
   try {
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true, // SSL connection (Render ke liye best hai)
-      auth: {
-        // Agar process.env nahi mil raha toh direct ye wala email/pass use hoga
-        user: process.env.SMTP_USER || "jahanzaibhassan851@gmail.com",
-        pass: process.env.SMTP_PASS || "ocfldwbzduxwebhm"
-      },
-      tls: {
-        rejectUnauthorized: false // Security check bypass for cloud servers
-      },
-      connectionTimeout: 15000, // 15 seconds wait karega connection ke liye
-      greetingTimeout: 15000
+    const { data, error } = await resend.emails.send({
+      from: 'onboarding@resend.dev', // Resend ka default sender
+      to: to, // Shuru mein sirf apne email (jahanzaibhassan851@gmail.com) par test karein
+      subject: subject,
+      html: html || text,
     });
 
-    const info = await transporter.sendMail({
-      from: `"Software House" <jahanzaibhassan851@gmail.com>`,
-      to,
-      subject,
-      html,
-      ...(text && { text })
-    });
+    if (error) {
+      console.error("❌ Resend API Error:", error.message);
+      return null;
+    }
 
-    console.log("✅ Email successfully sent to:", to);
-    return info;
+    console.log("✅ Email Sent via Resend API! ID:", data.id);
+    return data;
   } catch (err) {
-    console.error("❌ Email Error Found!");
-    console.error("Message:", err.message);
-    // Error throw nahi kar rahe taake server chalta rahe
+    console.error("❌ Connection Error:", err.message);
     return null;
   }
 };
